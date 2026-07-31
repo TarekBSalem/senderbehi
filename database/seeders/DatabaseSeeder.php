@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -34,5 +35,11 @@ class DatabaseSeeder extends Seeder
             BlogPostSeeder::class,
             ChangelogSeeder::class,
         ]);
+
+        // Admins bypass usage quotas (User::canSend), but assign the top
+        // plan so the seeded admin always has a valid plan on record.
+        $business = SubscriptionPlan::where('code', 'business')->first();
+
+        $admin->update(['subscription_plan_id' => $business?->id]);
     }
 }

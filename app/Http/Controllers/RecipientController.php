@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendCampaignEmail;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use Illuminate\Http\JsonResponse;
@@ -73,9 +74,17 @@ class RecipientController extends Controller
         }
 
         if ($request->inertia()) {
-            return $this->recipientSuccess(
-                'Added '.$added.' recipient'.($added === 1 ? '' : 's').($duplicates > 0 ? ' ('.$duplicates.' duplicate'.($duplicates === 1 ? '' : 's').' skipped)' : ''),
-            );
+            Inertia::flash('toast', [
+                'type' => 'success',
+                'message' => 'Added '.$added.' recipient'.($added === 1 ? '' : 's').($duplicates > 0 ? ' ('.$duplicates.' duplicate'.($duplicates === 1 ? '' : 's').' skipped)' : ''),
+            ]);
+            Inertia::flash('importResult', [
+                'added' => $added,
+                'duplicates' => $duplicates,
+                'invalid' => 0,
+            ]);
+
+            return back();
         }
 
         return response()->json([
@@ -117,12 +126,15 @@ class RecipientController extends Controller
 
         $added = 0;
         $duplicates = 0;
+        $invalid = 0;
 
         while (($row = fgetcsv($handle)) !== false) {
             $email = $row[$emailIndex] ?? null;
             $name = $nameIndex !== false ? ($row[$nameIndex] ?? null) : null;
 
             if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                $invalid++;
+
                 continue;
             }
 
@@ -149,9 +161,17 @@ class RecipientController extends Controller
         fclose($handle);
 
         if ($request->inertia()) {
-            return $this->recipientSuccess(
-                'Imported '.$added.' recipient'.($added === 1 ? '' : 's').($duplicates > 0 ? ' ('.$duplicates.' duplicate'.($duplicates === 1 ? '' : 's').' skipped)' : ''),
-            );
+            Inertia::flash('toast', [
+                'type' => 'success',
+                'message' => 'Imported '.$added.' recipient'.($added === 1 ? '' : 's').($duplicates > 0 ? ' ('.$duplicates.' duplicate'.($duplicates === 1 ? '' : 's').' skipped)' : ''),
+            ]);
+            Inertia::flash('importResult', [
+                'added' => $added,
+                'duplicates' => $duplicates,
+                'invalid' => $invalid,
+            ]);
+
+            return back();
         }
 
         return response()->json([
@@ -180,6 +200,72 @@ class RecipientController extends Controller
         return response()->json([
             'success' => true,
         ]);
+    }
+
+    public function resend(Request $request, Campaign $campaign): JsonResponse|RedirectResponse
+    {
+        if ($campaign->user_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $recipientIds = $request->input('recipient_ids');
+
+        $query = $campaign->recipients()->whereIn('status', ['failed', 'sent']);
+
+        if (is_array($recipientIds) && count($recipientIds) > 0) {
+            $query->whereIn('id', $recipientIds);
+        } else {
+            $query->where('status', 'failed');
+        }
+
+        $recipients = $query->get();
+
+        if ($recipients->isEmpty()) {
+            return $this->recipientError('No resendable recipients selected', 422);
+        }
+
+        $user = $campaign->user;
+
+        if (! $user->canSend($recipients->count())) {
+            $remaining = $user->quotaRemaining();
+
+            return back()->with('error', "Monthly email limit exceeded. You have {$remaining} emails remaining this month.");
+        }
+
+        $sendsPerMinute = $campaign->resolveSendsPerMinute();
+
+        $delayPerEmail = (int) ceil(60 / max(1, $sendsPerMinute));
+
+        $campaign->update(['status' => 'sending']);
+
+        $recipientIdsToResend = $recipients->pluck('id');
+
+        $campaign->recipients()
+            ->whereIn('id', $recipientIdsToResend)
+            ->update([
+                'status' => 'pending',
+                'error_message' => null,
+            ]);
+
+        $delayOffset = 0;
+
+        $campaign->recipients()
+            ->whereIn('id', $recipientIdsToResend)
+            ->chunk(100, function ($chunk) use ($campaign, &$delayOffset, $delayPerEmail) {
+                $chunk->each(function ($recipient) use ($campaign, &$delayOffset, $delayPerEmail) {
+                    $job = SendCampaignEmail::dispatch($campaign, $recipient);
+
+                    if ($delayOffset > 0) {
+                        $job->delay(now()->addSeconds($delayOffset));
+                    }
+
+                    $delayOffset += $delayPerEmail;
+                });
+            });
+
+        $count = $recipients->count();
+
+        return $this->recipientSuccess("Queued {$count} recipient".($count === 1 ? '' : 's').' for resend');
     }
 
     private function recipientSuccess(string $message): RedirectResponse

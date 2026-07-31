@@ -72,6 +72,10 @@ class User extends Authenticatable implements PasskeyUser
 
     public function canSend(int $count = 1): bool
     {
+        if ($this->hasRole(['Super Admin', 'Admin'])) {
+            return true;
+        }
+
         $this->resetMonthlyCountIfNeeded();
 
         $plan = $this->subscriptionPlan;

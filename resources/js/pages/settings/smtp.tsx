@@ -1,4 +1,4 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,7 +11,8 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import Heading from '@/components/heading';
-import { useState, useEffect } from 'react';
+import ResultDialog from '@/components/result-dialog';
+import { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 interface SmtpSettings {
@@ -44,6 +45,7 @@ export default function SmtpSettings({ settings }: Props) {
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [submitting, setSubmitting] = useState(false);
     const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,13 +77,12 @@ export default function SmtpSettings({ settings }: Props) {
                 body: JSON.stringify({ host, port: Number(port) }),
             });
             const data = await res.json();
-            if (data.success) {
-                alert('Connection successful!');
-            } else {
-                alert('Connection failed: ' + (data.message || 'Unknown error'));
-            }
+            setTestResult({
+                success: data.success,
+                message: data.success ? (data.message || 'Connection successful.') : (data.message || 'Unknown error'),
+            });
         } catch (err) {
-            alert('Connection test failed.');
+            setTestResult({ success: false, message: 'Connection test failed.' });
         } finally {
             setTesting(false);
         }
@@ -234,6 +235,14 @@ export default function SmtpSettings({ settings }: Props) {
                     )}
                 </div>
             </form>
+
+            <ResultDialog
+                open={testResult !== null}
+                onOpenChange={(open) => !open && setTestResult(null)}
+                variant={testResult?.success ? 'success' : 'error'}
+                title={testResult?.success ? 'Connection Successful' : 'Connection Failed'}
+                message={testResult?.message ?? ''}
+            />
         </>
     );
 }

@@ -173,16 +173,11 @@ describe('Campaign custom SMTP', function () {
             ->toThrow(Exception::class, 'user-smtp.invalid');
     });
 
-    test('platform SMTP is used when no custom SMTP exists', function () {
-        PlatformSmtpSetting::create([
-            'host' => 'platform-smtp.invalid',
-            'port' => 587,
-            'username' => 'platform@example.com',
-            'password' => 'password',
-            'from_email' => 'platform@example.com',
-            'from_name' => 'Platform',
-            'daily_limit' => 1000,
-            'is_active' => true,
+    test('default mailer (env) is used when no custom SMTP exists', function () {
+        config([
+            'mail.default' => 'smtp',
+            'mail.mailers.smtp.host' => 'default-smtp.invalid',
+            'mail.mailers.smtp.port' => 587,
         ]);
 
         $campaign = Campaign::factory()->create(['user_id' => $this->user->id]);
@@ -191,7 +186,7 @@ describe('Campaign custom SMTP', function () {
         $emailService = app(EmailService::class);
 
         expect(fn () => $emailService->send($this->user, $mailable, 'r@example.com', $campaign))
-            ->toThrow(Exception::class, 'platform-smtp.invalid');
+            ->toThrow(Exception::class, 'default-smtp.invalid');
     });
 });
 

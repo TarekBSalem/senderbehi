@@ -63,6 +63,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('campaigns/{campaign}/recipients', [RecipientController::class, 'index'])->name('recipients.index');
     Route::post('campaigns/{campaign}/recipients', [RecipientController::class, 'store'])->name('recipients.store');
     Route::post('campaigns/{campaign}/recipients/import', [RecipientController::class, 'importCsv'])->name('recipients.import');
+    Route::post('campaigns/{campaign}/recipients/resend', [RecipientController::class, 'resend'])->name('recipients.resend');
     Route::delete('campaigns/{campaign}/recipients/{recipient}', [RecipientController::class, 'destroy'])->name('recipients.destroy');
 
     // Admin Panel

@@ -272,6 +272,7 @@ describe('Recipient Inertia Responses', function () {
 
         $response->assertRedirect();
         $response->assertInertiaFlash('toast');
+        $response->assertInertiaFlash('importResult', ['added' => 1, 'duplicates' => 0, 'invalid' => 0]);
 
         $this->assertDatabaseHas('campaign_recipients', [
             'campaign_id' => $this->campaign->id,
@@ -282,7 +283,7 @@ describe('Recipient Inertia Responses', function () {
     test('inertia request to import recipients redirects back with toast', function () {
         $this->actingAs($this->user);
 
-        $csvContent = "email,name\njohn@example.com,John Doe\n";
+        $csvContent = "email,name\njohn@example.com,John Doe\nnot-an-email,Bad Row\n";
         $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
 
         $response = $this->post(route('recipients.import', $this->campaign), [
@@ -291,6 +292,7 @@ describe('Recipient Inertia Responses', function () {
 
         $response->assertRedirect();
         $response->assertInertiaFlash('toast');
+        $response->assertInertiaFlash('importResult', ['added' => 1, 'duplicates' => 0, 'invalid' => 1]);
 
         $this->assertDatabaseHas('campaign_recipients', [
             'campaign_id' => $this->campaign->id,

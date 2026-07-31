@@ -127,6 +127,30 @@ describe('quota enforcement', function () {
         expect($user->quotaRemaining())->toBe(500);
         expect($user->fresh()->monthly_email_count)->toBe(0);
     });
+
+    test('Super Admin can send without a plan', function () {
+        $admin = User::factory()->admin()->create();
+
+        expect($admin->canSend(10000))->toBeTrue();
+    });
+
+    test('Super Admin can send even when over plan limit', function () {
+        $admin = User::factory()->admin()->create([
+            'subscription_plan_id' => $this->freePlan->id,
+            'monthly_email_count' => 500,
+            'monthly_email_reset_at' => now(),
+        ]);
+
+        expect($admin->canSend())->toBeTrue();
+        expect($admin->canSend(10000))->toBeTrue();
+    });
+
+    test('Admin role bypasses quota', function () {
+        $admin = User::factory()->create();
+        $admin->assignRole('Admin');
+
+        expect($admin->canSend(10000))->toBeTrue();
+    });
 });
 
 describe('campaign send quota check', function () {

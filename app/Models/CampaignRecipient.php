@@ -15,6 +15,8 @@ class CampaignRecipient extends Model
         'email',
         'name',
         'status',
+        'attempt_count',
+        'success_count',
         'sent_at',
         'error_message',
         'metadata',

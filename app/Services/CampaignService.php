@@ -58,12 +58,16 @@ class CampaignService
         );
 
         try {
+            $recipient->increment('attempt_count');
+
             $this->emailService->send($user, $mailable, $recipient->email, $campaign);
 
             $recipient->update([
                 'status' => 'sent',
                 'sent_at' => now(),
             ]);
+
+            $recipient->increment('success_count');
 
             $this->updateCampaignStats($campaign, true);
 
@@ -91,8 +95,10 @@ class CampaignService
         $remaining = $campaign->recipients()->where('status', 'pending')->count();
 
         if ($remaining === 0) {
+            $hasFailedRecipients = $campaign->recipients()->where('status', 'failed')->exists();
+
             $campaign->update([
-                'status' => $campaign->failed_count > 0 ? 'partial' : 'sent',
+                'status' => $hasFailedRecipients ? 'partial' : 'sent',
                 'sent_at' => now(),
             ]);
         }

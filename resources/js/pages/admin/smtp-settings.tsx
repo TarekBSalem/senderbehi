@@ -1,9 +1,12 @@
 import { Head, useForm } from '@inertiajs/react';
+import { useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ResultDialog from '@/components/result-dialog';
 import {
     Select,
     SelectContent,
@@ -30,7 +33,7 @@ interface Props {
 }
 
 export default function AdminSmtpSettings({ smtp }: Props) {
-    const { data, setData, put, post, processing, errors, recentlySuccessful } = useForm({
+    const { data, setData, put, processing, errors, recentlySuccessful } = useForm({
         host: smtp?.host || '',
         port: smtp?.port || 587,
         username: smtp?.username || '',
@@ -41,14 +44,41 @@ export default function AdminSmtpSettings({ smtp }: Props) {
         daily_limit: smtp?.daily_limit || 100,
         is_active: smtp?.is_active ?? true,
     });
+    const [testing, setTesting] = useState(false);
+    const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         put('/admin/smtp');
     };
 
-    const handleTestConnection = () => {
-        post('/admin/smtp/test');
+    const handleTestConnection = async () => {
+        setTesting(true);
+
+        try {
+            const res = await fetch('/admin/smtp/test', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    host: data.host,
+                    port: data.port,
+                    encryption: data.encryption,
+                }),
+            });
+            const body = await res.json();
+
+            setTestResult({
+                success: body.success,
+                message: body.success ? (body.message || 'Connection successful.') : (body.error || body.message || 'Connection failed.'),
+            });
+        } catch (err) {
+            setTestResult({ success: false, message: 'Connection test failed.' });
+        } finally {
+            setTesting(false);
+        }
     };
 
     return (
@@ -204,7 +234,9 @@ export default function AdminSmtpSettings({ smtp }: Props) {
                                     type="button"
                                     variant="outline"
                                     onClick={handleTestConnection}
+                                    disabled={processing || testing}
                                 >
+                                    {testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Test Connection
                                 </Button>
                             </div>
@@ -231,6 +263,14 @@ export default function AdminSmtpSettings({ smtp }: Props) {
                     </CardContent>
                 </Card>
             </div>
+
+            <ResultDialog
+                open={testResult !== null}
+                onOpenChange={(open) => !open && setTestResult(null)}
+                variant={testResult?.success ? 'success' : 'error'}
+                title={testResult?.success ? 'Connection Successful' : 'Connection Failed'}
+                message={testResult?.message ?? ''}
+            />
         </>
     );
 }

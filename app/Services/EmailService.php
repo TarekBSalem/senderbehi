@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Campaign;
-use App\Models\PlatformSmtpSetting;
 use App\Models\SmtpSetting;
 use App\Models\User;
 use Illuminate\Mail\Mailable;
@@ -27,7 +26,7 @@ class EmailService
             return $this->sendWithCustomSmtp($userSmtp, $mailable, $email);
         }
 
-        return $this->sendWithPlatformSmtp($mailable, $email);
+        return $this->sendWithDefaultMailer($mailable, $email);
     }
 
     /**
@@ -55,33 +54,11 @@ class EmailService
     }
 
     /**
-     * Send using platform's SMTP (admin-configured)
+     * Send using the app's default mailer (configured via MAIL_* env vars)
      */
-    private function sendWithPlatformSmtp(Mailable $mailable, string $email): bool
+    private function sendWithDefaultMailer(Mailable $mailable, string $email): bool
     {
-        $platformSmtp = PlatformSmtpSetting::where('is_active', true)->first();
-
-        if (! $platformSmtp) {
-            throw new \Exception('Platform SMTP not configured. Please ask admin to configure SMTP settings.');
-        }
-
-        if ($platformSmtp->dailyLimitReached()) {
-            throw new \Exception('Platform SMTP daily limit of '.$platformSmtp->daily_limit.' emails has been reached. Sending will resume tomorrow.');
-        }
-
-        $transport = $this->createTransport(
-            $platformSmtp->host,
-            $platformSmtp->port,
-            $platformSmtp->username,
-            $platformSmtp->password,
-            $platformSmtp->encryption
-        );
-
-        $mailer = Mail::mailer();
-        $mailer->setSymfonyTransport($transport);
-        $mailer->to($email)->send($mailable);
-
-        $platformSmtp->incrementDailySentCount();
+        Mail::to($email)->send($mailable);
 
         return true;
     }

@@ -1,6 +1,5 @@
 # MailForge — Progress Tracker
-# Last Updated: 2026-07-31 (8th update)
-# Update this file at the end of every task.
+# Last Updated: 2026-08-01 (9th update)# Update this file at the end of every task.
 
 ---
 
@@ -48,7 +47,13 @@
 | SQLite migration fix | Removed composite-index collision in tmp-table rebuild (`campaigns_tmp_user_id_status_index`) so `migrate:fresh` works on SQLite test DB |
 | Test suite fixes | `CampaignTest` validation expectation updated (template OR HTML); `CategoryFactory` unique-slug suffix (was exhausting 6-name pool, blocking analytics tests); quota reset test month-boundary fix; SMTP priority tests rewritten to work with array mailer + real transport |
 | TypeScript cleanup | Fixed `srcdoc` → `srcDoc`, `useForm.transform()` usage; fixed pre-existing `admin/smtp-settings.tsx` `success` form-prop type error — `tsc --noEmit` clean |
-| Tests | `CampaignSendingOptionsTest` (15 tests) — create/import-HTML, SMTP priority, password encryption, update semantics, send-rate resolution, scheduled command. Full suite: 269/269 passing. |
+| SMTP test-connection dialogs | Replaced `alert()` with shared `ResultDialog` component (`resources/js/components/result-dialog.tsx`) on `settings/smtp.tsx` + `admin/smtp-settings.tsx`; admin test now sends host/port/encryption via fetch with proper success/error feedback, spinner while testing |
+| Recipient import result dialog | `RecipientController` store/importCsv now flash `importResult` (added/duplicates/invalid) alongside toast; `campaigns/show.tsx` listens for the `flash` event and shows a ResultDialog breakdown; CSV invalid-row count now tracked (`$invalid`) |
+| Tests | `CampaignSendingOptionsTest` (15 tests) — create/import-HTML, SMTP priority, password encryption, update semantics, send-rate resolution, scheduled command. Full suite: 274/274 passing. |
+| SMTP priority rework | New priority: campaign SMTP → user SMTP → **default mailer (MAIL_* env)**. Platform SMTP removed from send path (kept for physical_address + sends_per_minute fallback + admin UI); `EmailService::sendWithPlatformSmtp()` replaced with `sendWithDefaultMailer()`; removed platform daily-limit enforcement test. Fixes "Platform SMTP not configured" crash when table empty. Full suite: 273/273 passing. |
+| Admin unlimited sending | `User::canSend()` bypasses quota for `Super Admin` + `Admin` roles (returns true regardless of plan/limit); 3 new tests. `DatabaseSeeder` now assigns the **Business** plan to the seeded admin so they always have a plan on record; new `DatabaseSeederTest` (2 tests). Root cause of local sends failing: seeded admin had no `subscription_plan_id` → `canSend()` returned false → send blocked with "Monthly email limit exceeded". Full suite: 278/278 passing. |
+| Resend + attempt/success tracking | New `ConfirmDialog` component replaces native `confirm()` on Send Now / scheduled Send. `attempt_count` + `success_count` columns on `campaign_recipients` (incremented in `CampaignService::sendToRecipient`). New `recipients.resend` route (`RecipientController::resend`) re-queues selected (or all failed) recipients any number of times with rate-limit staggering; campaign status returns to `sending`, then `sent` when no failed recipients remain (`updateCampaignStats` now checks current failed recipients). UI: checkboxes per recipient + select-all, "Resend Selected (N)" and "Resend Failed (N)" buttons, "Attempts (successes/tries)" column. 8 new tests. Full suite: 286/286 passing. |
+| Resend Campaign + per-recipient resend | For already-sent campaigns: header "Resend Campaign" button (status `sent`) re-queues all sent/failed recipients; each sent/failed recipient row gets its own "Resend" button. Both reuse `recipients.resend` with explicit `recipient_ids`, so resends can be repeated endlessly with attempt/success counts accumulating. Frontend-only (show.tsx); tsc + build clean. |
 
 ### Completed This Sprint (Jul 29)
 | Task | Notes |

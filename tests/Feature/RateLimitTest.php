@@ -1,14 +1,12 @@
 <?php
 
 use App\Jobs\SendCampaignEmail;
-use App\Mail\MarketingEmail;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
 use App\Models\PlatformSmtpSetting;
 use App\Models\SubscriptionPlan;
 use App\Models\Template;
 use App\Models\User;
-use App\Services\EmailService;
 use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -126,31 +124,6 @@ describe('PlatformSmtpSetting daily limit', function () {
         expect($fresh->daily_sent_count)->toBe(1);
         expect($fresh->daily_sent_date->toDateString())->toBe(now()->toDateString());
     });
-});
-
-describe('EmailService daily limit enforcement', function () {
-    test('throws exception when platform SMTP daily limit is reached', function () {
-        PlatformSmtpSetting::create([
-            'host' => 'smtp.example.com',
-            'port' => 587,
-            'username' => 'test@example.com',
-            'password' => 'password',
-            'from_email' => 'test@example.com',
-            'from_name' => 'Test',
-            'daily_limit' => 0,
-            'daily_sent_count' => 0,
-            'is_active' => true,
-        ]);
-
-        $mailable = new MarketingEmail(
-            subject: 'Test',
-            htmlContent: '<p>Hello</p>',
-        );
-
-        $emailService = app(EmailService::class);
-
-        $emailService->send($this->user, $mailable, 'recipient@example.com');
-    })->throws(Exception::class, 'daily limit');
 });
 
 describe('CampaignController send rate limiting', function () {

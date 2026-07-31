@@ -1,10 +1,11 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { CalendarDays, Clock, Monitor, Send, Smartphone } from 'lucide-react';
-import { useState } from 'react';
+import { CalendarDays, Clock, Monitor, RotateCcw, Send, Smartphone } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import ConfirmDialog from '@/components/confirm-dialog';
 import {
     Dialog,
     DialogContent,
@@ -16,6 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ResultDialog from '@/components/result-dialog';
 import {
     Select,
     SelectContent,
@@ -37,8 +39,16 @@ interface Recipient {
     email: string;
     name: string | null;
     status: string;
+    attempt_count: number;
+    success_count: number;
     sent_at: string | null;
     error_message: string | null;
+}
+
+interface ImportResult {
+    added: number;
+    duplicates: number;
+    invalid: number;
 }
 
 interface Campaign {
@@ -107,6 +117,20 @@ return '';
     const pad = (n: number) => String(n).padStart(2, '0');
 
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+};
+
+const buildImportMessage = (result: ImportResult): string => {
+    const lines = [`${result.added} recipient${result.added === 1 ? '' : 's'} added`];
+
+    if (result.duplicates > 0) {
+        lines.push(`${result.duplicates} duplicate${result.duplicates === 1 ? '' : 's'} skipped`);
+    }
+
+    if (result.invalid > 0) {
+        lines.push(`${result.invalid} invalid row${result.invalid === 1 ? '' : 's'} skipped`);
+    }
+
+    return lines.join('\n');
 };
 
 function SendingSettings({ campaign }: { campaign: Campaign }) {
@@ -339,6 +363,24 @@ export default function CampaignShow({ campaign, previewHtml }: Props) {
     const [scheduleDate, setScheduleDate] = useState('');
     const [scheduleTime, setScheduleTime] = useState('');
     const [previewWidth, setPreviewWidth] = useState<'desktop' | 'mobile'>('desktop');
+    const [importResult, setImportResult] = useState<ImportResult | null>(null);
+    const [sendConfirmKind, setSendConfirmKind] = useState<'now' | 'scheduled' | null>(null);
+    const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [resendSelectedOpen, setResendSelectedOpen] = useState(false);
+    const [resendAllOpen, setResendAllOpen] = useState(false);
+    const [resendCampaignOpen, setResendCampaignOpen] = useState(false);
+    const [resendRecipient, setResendRecipient] = useState<Recipient | null>(null);
+
+    useEffect(() => {
+        return router.on('flash', (event) => {
+            const flash = (event as CustomEvent).detail?.flash;
+            const result = flash?.importResult as ImportResult | undefined;
+
+            if (result) {
+                setImportResult(result);
+            }
+        });
+    }, []);
 
     const handleAddRecipient = (e: React.FormEvent) => {
         e.preventDefault();
@@ -371,7 +413,14 @@ return;
     };
 
     const handleSendNow = () => {
-        if (confirm('Are you sure you want to send this campaign now?')) {
+        setSendConfirmKind('now');
+    };
+
+    const confirmSend = () => {
+        const kind = sendConfirmKind;
+        setSendConfirmKind(null);
+
+        if (kind) {
             router.post(`/campaigns/${campaign.id}/send`);
         }
     };
@@ -389,9 +438,61 @@ return;
     };
 
     const handleSendScheduled = () => {
-        if (confirm('Send this scheduled campaign now?')) {
-            router.post(`/campaigns/${campaign.id}/send`);
+        setSendConfirmKind('scheduled');
+    };
+
+    const resendableRecipients = campaign.recipients?.filter((recipient) => ['failed', 'sent'].includes(recipient.status)) ?? [];
+    const failedRecipients = campaign.recipients?.filter((recipient) => recipient.status === 'failed') ?? [];
+    const allResendableSelected = resendableRecipients.length > 0 && selectedIds.length === resendableRecipients.length;
+
+    const toggleRecipient = (recipientId: number) => {
+        setSelectedIds((prev) => (
+            prev.includes(recipientId) ? prev.filter((id) => id !== recipientId) : [...prev, recipientId]
+        ));
+    };
+
+    const toggleSelectAll = () => {
+        setSelectedIds(allResendableSelected ? [] : resendableRecipients.map((recipient) => recipient.id));
+    };
+
+    const confirmResendSelected = () => {
+        const ids = selectedIds;
+        setResendSelectedOpen(false);
+        setSelectedIds([]);
+
+        if (ids.length > 0) {
+            router.post(`/campaigns/${campaign.id}/recipients/resend`, {
+                recipient_ids: ids,
+            });
         }
+    };
+
+    const confirmResendAllFailed = () => {
+        setResendAllOpen(false);
+        router.post(`/campaigns/${campaign.id}/recipients/resend`);
+    };
+
+    const confirmResendCampaign = () => {
+        const ids = campaign.recipients?.filter((recipient) => ['sent', 'failed'].includes(recipient.status)).map((recipient) => recipient.id) ?? [];
+        setResendCampaignOpen(false);
+
+        if (ids.length > 0) {
+            router.post(`/campaigns/${campaign.id}/recipients/resend`, {
+                recipient_ids: ids,
+            });
+        }
+    };
+
+    const confirmResendRecipient = () => {
+        if (!resendRecipient) {
+            return;
+        }
+
+        const id = resendRecipient.id;
+        setResendRecipient(null);
+        router.post(`/campaigns/${campaign.id}/recipients/resend`, {
+            recipient_ids: [id],
+        });
     };
 
     const handleDelete = () => {
@@ -434,6 +535,18 @@ return;
                             >
                                 Analytics
                             </Link>
+                        )}
+                        {['sent', 'partial', 'failed'].includes(campaign.status) && failedRecipients.length > 0 && (
+                            <Button variant="outline" onClick={() => setResendAllOpen(true)}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Resend Failed ({failedRecipients.length})
+                            </Button>
+                        )}
+                        {campaign.status === 'sent' && resendableRecipients.length > 0 && (
+                            <Button variant="outline" onClick={() => setResendCampaignOpen(true)}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Resend Campaign
+                            </Button>
                         )}
                         {campaign.status === 'draft' && (
                             <>
@@ -643,55 +756,96 @@ return;
                 )}
 
                 <Card>
-                    <CardHeader>
+                    <CardHeader className="flex-row items-center justify-between space-y-0">
                         <CardTitle>Recipients ({campaign.recipients?.length || 0})</CardTitle>
+                        {selectedIds.length > 0 && (
+                            <Button variant="outline" size="sm" onClick={() => setResendSelectedOpen(true)}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Resend Selected ({selectedIds.length})
+                            </Button>
+                        )}
                     </CardHeader>
                     <CardContent>
                         <Table>
                             <TableHeader>
                                 <TableRow>
+                                    <TableHead className="w-10">
+                                        <Checkbox
+                                            aria-label="Select all resendable recipients"
+                                            checked={allResendableSelected}
+                                            onCheckedChange={toggleSelectAll}
+                                            disabled={resendableRecipients.length === 0}
+                                        />
+                                    </TableHead>
                                     <TableHead>Email</TableHead>
                                     <TableHead>Name</TableHead>
                                     <TableHead>Status</TableHead>
+                                    <TableHead>Attempts</TableHead>
                                     <TableHead>Sent At</TableHead>
                                     <TableHead>Error</TableHead>
                                     <TableHead>Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {campaign.recipients?.map((recipient) => (
-                                    <TableRow key={recipient.id}>
-                                        <TableCell>{recipient.email}</TableCell>
-                                        <TableCell>{recipient.name || '-'}</TableCell>
-                                        <TableCell>
-                                            <Badge className={recipientStatusColors[recipient.status]}>
-                                                {recipient.status}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell>
-                                            {recipient.sent_at
-                                                ? new Date(recipient.sent_at).toLocaleString()
-                                                : '-'}
-                                        </TableCell>
-                                        <TableCell className="max-w-[200px] truncate text-red-500 text-sm">
-                                            {recipient.error_message || '-'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {['draft', 'scheduled'].includes(campaign.status) && recipient.status === 'pending' && (
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRemoveRecipient(recipient.id)}
-                                                >
-                                                    Remove
-                                                </Button>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
+                                {campaign.recipients?.map((recipient) => {
+                                    const isResendable = ['failed', 'sent'].includes(recipient.status);
+
+                                    return (
+                                        <TableRow key={recipient.id}>
+                                            <TableCell>
+                                                <Checkbox
+                                                    aria-label={`Select ${recipient.email}`}
+                                                    checked={selectedIds.includes(recipient.id)}
+                                                    onCheckedChange={() => toggleRecipient(recipient.id)}
+                                                    disabled={!isResendable}
+                                                />
+                                            </TableCell>
+                                            <TableCell>{recipient.email}</TableCell>
+                                            <TableCell>{recipient.name || '-'}</TableCell>
+                                            <TableCell>
+                                                <Badge className={recipientStatusColors[recipient.status]}>
+                                                    {recipient.status}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                {recipient.attempt_count > 0
+                                                    ? `${recipient.success_count}/${recipient.attempt_count}`
+                                                    : '-'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {recipient.sent_at
+                                                    ? new Date(recipient.sent_at).toLocaleString()
+                                                    : '-'}
+                                            </TableCell>
+                                            <TableCell className="max-w-[200px] truncate text-red-500 text-sm">
+                                                {recipient.error_message || '-'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {['draft', 'scheduled'].includes(campaign.status) && recipient.status === 'pending' && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleRemoveRecipient(recipient.id)}
+                                                    >
+                                                        Remove
+                                                    </Button>
+                                                )}
+                                                {isResendable && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => setResendRecipient(recipient)}
+                                                    >
+                                                        Resend
+                                                    </Button>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
                                 {(!campaign.recipients || campaign.recipients.length === 0) && (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                             No recipients yet. Add some above.
                                         </TableCell>
                                     </TableRow>
@@ -701,6 +855,63 @@ return;
                     </CardContent>
                 </Card>
             </div>
+
+            <ConfirmDialog
+                open={sendConfirmKind !== null}
+                onOpenChange={(open) => !open && setSendConfirmKind(null)}
+                title={sendConfirmKind === 'scheduled' ? 'Send this scheduled campaign now?' : 'Send this campaign now?'}
+                description={`This will send to ${
+                    campaign.recipients?.filter((recipient) => recipient.status === 'pending').length ?? 0
+                } pending recipient(s).`}
+                confirmLabel="Send"
+                onConfirm={confirmSend}
+            />
+
+            <ConfirmDialog
+                open={resendSelectedOpen}
+                onOpenChange={setResendSelectedOpen}
+                title="Resend selected recipients?"
+                description={`${selectedIds.length} recipient(s) will be queued for another send attempt.`}
+                confirmLabel="Resend"
+                onConfirm={confirmResendSelected}
+            />
+
+            <ConfirmDialog
+                open={resendAllOpen}
+                onOpenChange={setResendAllOpen}
+                title="Resend all failed recipients?"
+                description={`${failedRecipients.length} failed recipient(s) will be queued for another send attempt.`}
+                confirmLabel="Resend"
+                onConfirm={confirmResendAllFailed}
+            />
+
+            <ConfirmDialog
+                open={resendCampaignOpen}
+                onOpenChange={setResendCampaignOpen}
+                title="Resend this campaign?"
+                description={`${
+                    campaign.recipients?.filter((recipient) => ['sent', 'failed'].includes(recipient.status)).length ?? 0
+                } recipient(s) will be queued for another send.`}
+                confirmLabel="Resend"
+                onConfirm={confirmResendCampaign}
+            />
+
+            <ConfirmDialog
+                open={resendRecipient !== null}
+                onOpenChange={(open) => !open && setResendRecipient(null)}
+                title="Resend this recipient?"
+                description={resendRecipient ? `${resendRecipient.email} will be queued for another send attempt.` : undefined}
+                confirmLabel="Resend"
+                onConfirm={confirmResendRecipient}
+            />
+
+            <ResultDialog
+                open={importResult !== null}
+                onOpenChange={(open) => !open && setImportResult(null)}
+                variant={(importResult?.added ?? 0) > 0 ? 'success' : 'error'}
+                title={(importResult?.added ?? 0) > 0 ? 'Recipients Added' : 'No Recipients Added'}
+                message={importResult ? buildImportMessage(importResult) : ''}
+            />
         </>
     );
 }
