@@ -26,7 +26,17 @@ class SendCampaignEmail implements ShouldQueue
 
     public function handle(CampaignService $campaignService): void
     {
+        $user = $this->campaign->user;
+
+        if (! $user->canSend()) {
+            $this->fail(new \RuntimeException('Monthly email limit reached.'));
+
+            return;
+        }
+
         $campaignService->sendToRecipient($this->campaign, $this->recipient);
+
+        $user->incrementMonthlyEmailCount();
     }
 
     public function failed(\Throwable $exception): void

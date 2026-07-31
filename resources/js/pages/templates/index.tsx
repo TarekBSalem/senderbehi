@@ -8,13 +8,13 @@ interface Template {
     name: string;
     slug: string;
     description: string;
-    category: string;
+    category: { id: number; name: string; slug: string } | null;
     preview_image: string | null;
 }
 
 interface Props {
     templates: Template[];
-    categories: string[];
+    categories: { id: number; name: string; slug: string }[];
 }
 
 export default function TemplateIndex({ templates, categories }: Props) {
@@ -32,8 +32,8 @@ export default function TemplateIndex({ templates, categories }: Props) {
                 <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="cursor-pointer">All</Badge>
                     {categories.map((category) => (
-                        <Badge key={category} variant="outline" className="cursor-pointer capitalize">
-                            {category}
+                        <Badge key={category.slug} variant="outline" className="cursor-pointer capitalize">
+                            {category.name}
                         </Badge>
                     ))}
                 </div>
@@ -50,7 +50,7 @@ export default function TemplateIndex({ templates, categories }: Props) {
                             </CardHeader>
                             <CardFooter className="flex justify-between">
                                 <Badge variant="secondary" className="capitalize">
-                                    {template.category}
+                                    {template.category?.name}
                                 </Badge>
                                 <Link href={`/templates/${template.slug}`}>
                                     <Button variant="outline" size="sm">Preview</Button>

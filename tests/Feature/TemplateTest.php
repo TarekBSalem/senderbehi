@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Category;
 use App\Models\Template;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -30,11 +31,13 @@ describe('Template Index', function () {
         $response->assertOk();
     });
 
-    test('templates can be filtered by category', function () {
+    test('templates can be filtered by category slug', function () {
         $this->actingAs($this->user);
 
-        Template::factory()->create(['category' => 'newsletter', 'is_active' => true]);
-        Template::factory()->create(['category' => 'promotional', 'is_active' => true]);
+        $newsletter = Category::factory()->create(['name' => 'Newsletter', 'slug' => 'newsletter']);
+        $promo = Category::factory()->create(['name' => 'Promotional', 'slug' => 'promotional']);
+        Template::factory()->create(['category_id' => $newsletter->id, 'is_active' => true]);
+        Template::factory()->create(['category_id' => $promo->id, 'is_active' => true]);
 
         $response = $this->get(route('templates.index', ['category' => 'newsletter']));
         $response->assertOk();

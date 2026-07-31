@@ -52,6 +52,14 @@ class CampaignFactory extends Factory
         ]);
     }
 
+    public function scheduled(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'scheduled',
+            'scheduled_at' => now()->addHour(),
+        ]);
+    }
+
     public function failed(): static
     {
         return $this->state(fn (array $attributes) => [

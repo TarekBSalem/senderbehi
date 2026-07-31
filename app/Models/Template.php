@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Template extends Model
@@ -15,7 +16,7 @@ class Template extends Model
         'slug',
         'subject',
         'body_html',
-        'category',
+        'category_id',
         'thumbnail',
         'variables',
         'is_active',
@@ -25,6 +26,11 @@ class Template extends Model
         'variables' => 'array',
         'is_active' => 'boolean',
     ];
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
+    }
 
     public function campaigns(): HasMany
     {

@@ -2,15 +2,19 @@
 
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Models\SubscriptionPlan;
 use App\Models\Template;
 use App\Models\User;
+use Database\Seeders\SubscriptionPlanSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    $this->user = User::factory()->create();
+    $this->seed(SubscriptionPlanSeeder::class);
+    $freePlan = SubscriptionPlan::where('code', 'free')->first();
+    $this->user = User::factory()->create(['subscription_plan_id' => $freePlan->id]);
     $this->template = Template::factory()->create();
 });
 
@@ -87,7 +91,7 @@ describe('Campaign Store', function () {
         $response->assertSessionHasErrors('name');
     });
 
-    test('campaign creation requires template_id', function () {
+    test('campaign creation requires a template or HTML body', function () {
         $this->actingAs($this->user);
 
         $response = $this->post(route('campaigns.store'), [
@@ -95,7 +99,7 @@ describe('Campaign Store', function () {
             'subject' => 'Test Subject',
         ]);
 
-        $response->assertSessionHasErrors('template_id');
+        $response->assertSessionHasErrors('body_html');
     });
 
     test('campaign creation requires valid template_id', function () {
@@ -200,7 +204,7 @@ describe('Campaign Send', function () {
 
         $this->assertDatabaseHas('campaigns', [
             'id' => $campaign->id,
-            'status' => 'queued',
+            'status' => 'sending',
         ]);
     });
 
@@ -232,5 +236,60 @@ describe('Campaign Send', function () {
 
         $response = $this->post(route('campaigns.send', $campaign));
         $response->assertStatus(403);
+    });
+});
+
+describe('email preview', function () {
+    test('campaign show page includes preview HTML when template exists', function () {
+        $this->actingAs($this->user);
+
+        $campaign = Campaign::factory()->draft()->create([
+            'user_id' => $this->user->id,
+            'template_id' => $this->template->id,
+        ]);
+
+        $response = $this->get(route('campaigns.show', $campaign));
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn ($page) => $page
+            ->has('previewHtml')
+        );
+    });
+
+    test('campaign show page preview HTML contains sample variables', function () {
+        $this->actingAs($this->user);
+
+        $this->template->update(['body_html' => '<h1>Hello {{name}}!</h1>']);
+
+        $campaign = Campaign::factory()->draft()->create([
+            'user_id' => $this->user->id,
+            'template_id' => $this->template->id,
+        ]);
+
+        $response = $this->get(route('campaigns.show', $campaign));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('previewHtml', fn (string $html) => str_contains($html, 'Sample Recipient'))
+        );
+    });
+
+    test('campaign show page preview contains rendered template body', function () {
+        $this->actingAs($this->user);
+
+        $this->template->update(['body_html' => '<p>Hello {{name}}, welcome to {{campaign_name}}!</p>']);
+
+        $campaign = Campaign::factory()->draft()->create([
+            'user_id' => $this->user->id,
+            'template_id' => $this->template->id,
+        ]);
+
+        $response = $this->get(route('campaigns.show', $campaign));
+
+        $response->assertInertia(fn ($page) => $page
+            ->where('previewHtml', fn (string $html) => (
+                str_contains($html, 'Sample Recipient') &&
+                str_contains($html, $campaign->name)
+            ))
+        );
     });
 });

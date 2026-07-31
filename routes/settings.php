@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\SmtpController;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Route;
 
@@ -24,6 +25,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
+
+    Route::get('settings/smtp', [SmtpController::class, 'edit'])->name('smtp.edit');
+    Route::put('settings/smtp', [SmtpController::class, 'update'])->name('smtp.update');
+    Route::post('settings/smtp/test', [SmtpController::class, 'test'])->name('smtp.test');
 });
 
 Route::get('.well-known/passkey-endpoints', function () {

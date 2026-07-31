@@ -19,6 +19,7 @@ class SmtpSetting extends Model
         'from_email',
         'from_name',
         'is_active',
+        'sends_per_minute',
     ];
 
     protected $hidden = [

@@ -2,20 +2,25 @@
 
 namespace App\Services;
 
+use App\Models\Campaign;
 use App\Models\PlatformSmtpSetting;
 use App\Models\SmtpSetting;
 use App\Models\User;
 use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\Mail;
-use Symfony\Component\Mailer\Transport\Smtp\SmtpTransport;
+use Symfony\Component\Mailer\Transport\Smtp\EsmtpTransport;
 
 class EmailService
 {
     /**
-     * Send email using platform or user's custom SMTP
+     * Send email using campaign, user, or platform SMTP (in that order of priority)
      */
-    public function send(User $user, Mailable $mailable, string $email): bool
+    public function send(User $user, Mailable $mailable, string $email, ?Campaign $campaign = null): bool
     {
+        if ($campaign && $campaign->use_custom_smtp && $campaign->smtp_host) {
+            return $this->sendWithCampaignSmtp($campaign, $mailable, $email);
+        }
+
         $userSmtp = $user->smtpSetting;
 
         if ($userSmtp && $userSmtp->is_custom) {
@@ -23,6 +28,30 @@ class EmailService
         }
 
         return $this->sendWithPlatformSmtp($mailable, $email);
+    }
+
+    /**
+     * Send using the campaign's own SMTP (per-campaign override)
+     */
+    private function sendWithCampaignSmtp(Campaign $campaign, Mailable $mailable, string $email): bool
+    {
+        $transport = $this->createTransport(
+            $campaign->smtp_host,
+            $campaign->smtp_port ?? 587,
+            $campaign->smtp_username ?? '',
+            $campaign->smtp_password ?? '',
+            $campaign->smtp_encryption ?? 'tls'
+        );
+
+        if ($campaign->smtp_from_email) {
+            $mailable->from($campaign->smtp_from_email, $campaign->smtp_from_name);
+        }
+
+        $mailer = Mail::mailer();
+        $mailer->setSymfonyTransport($transport);
+        $mailer->to($email)->send($mailable);
+
+        return true;
     }
 
     /**
@@ -36,6 +65,10 @@ class EmailService
             throw new \Exception('Platform SMTP not configured. Please ask admin to configure SMTP settings.');
         }
 
+        if ($platformSmtp->dailyLimitReached()) {
+            throw new \Exception('Platform SMTP daily limit of '.$platformSmtp->daily_limit.' emails has been reached. Sending will resume tomorrow.');
+        }
+
         $transport = $this->createTransport(
             $platformSmtp->host,
             $platformSmtp->port,
@@ -44,9 +77,11 @@ class EmailService
             $platformSmtp->encryption
         );
 
-        Mail::transport($transport)
-            ->to($email)
-            ->send($mailable);
+        $mailer = Mail::mailer();
+        $mailer->setSymfonyTransport($transport);
+        $mailer->to($email)->send($mailable);
+
+        $platformSmtp->incrementDailySentCount();
 
         return true;
     }
@@ -66,9 +101,9 @@ class EmailService
 
         $mailable->from($smtp->from_email, $smtp->from_name);
 
-        Mail::transport($transport)
-            ->to($email)
-            ->send($mailable);
+        $mailer = Mail::mailer();
+        $mailer->setSymfonyTransport($transport);
+        $mailer->to($email)->send($mailable);
 
         return true;
     }
@@ -82,16 +117,12 @@ class EmailService
         string $username,
         string $password,
         string $encryption
-    ): SmtpTransport {
-        return new SmtpTransport(
-            $host,
-            $port,
-            $encryption === 'ssl' ? 'ssl' : 'tls',
-            [
-                'username' => $username,
-                'password' => $password,
-            ]
-        );
+    ): EsmtpTransport {
+        $transport = new EsmtpTransport($host, $port, $encryption === 'ssl');
+        $transport->setUsername($username);
+        $transport->setPassword($password);
+
+        return $transport;
     }
 
     /**

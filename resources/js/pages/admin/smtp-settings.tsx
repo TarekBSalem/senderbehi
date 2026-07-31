@@ -1,9 +1,9 @@
 import { Head, useForm } from '@inertiajs/react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
     Select,
     SelectContent,
@@ -30,7 +30,7 @@ interface Props {
 }
 
 export default function AdminSmtpSettings({ smtp }: Props) {
-    const { data, setData, put, post, processing, errors, success } = useForm({
+    const { data, setData, put, post, processing, errors, recentlySuccessful } = useForm({
         host: smtp?.host || '',
         port: smtp?.port || 587,
         username: smtp?.username || '',
@@ -62,9 +62,9 @@ export default function AdminSmtpSettings({ smtp }: Props) {
                     </p>
                 </div>
 
-                {success && (
+                {recentlySuccessful && (
                     <Alert>
-                        <AlertDescription>{success}</AlertDescription>
+                        <AlertDescription>SMTP settings saved successfully.</AlertDescription>
                     </Alert>
                 )}
 

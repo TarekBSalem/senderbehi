@@ -2,19 +2,23 @@
 
 namespace Database\Seeders;
 
+use App\Models\Category;
 use App\Models\Template;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class TemplateSeeder extends Seeder
 {
     public function run(): void
     {
+        $categoryMap = Category::all()->keyBy(fn ($c) => Str::slug($c->name));
+
         $templates = [
             [
                 'name' => 'Newsletter',
                 'slug' => 'newsletter',
                 'subject' => 'Your Newsletter from {{brand_name}}',
-                'category' => 'newsletter',
+                'categorySlug' => 'newsletter',
                 'thumbnail' => '/images/templates/newsletter.png',
                 'body_html' => $this->getNewsletterHtml(),
             ],
@@ -22,7 +26,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Promotional Offer',
                 'slug' => 'promotional-offer',
                 'subject' => 'Special Offer Just for You!',
-                'category' => 'promotional',
+                'categorySlug' => 'promotional',
                 'thumbnail' => '/images/templates/promo.png',
                 'body_html' => $this->getPromoHtml(),
             ],
@@ -30,7 +34,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Product Announcement',
                 'slug' => 'product-announcement',
                 'subject' => 'Introducing Something Amazing',
-                'category' => 'announcement',
+                'categorySlug' => 'announcement',
                 'thumbnail' => '/images/templates/announcement.png',
                 'body_html' => $this->getAnnouncementHtml(),
             ],
@@ -38,7 +42,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Welcome Series',
                 'slug' => 'welcome-series',
                 'subject' => 'Welcome to {{brand_name}}!',
-                'category' => 'welcome',
+                'categorySlug' => 'welcome',
                 'thumbnail' => '/images/templates/welcome.png',
                 'body_html' => $this->getWelcomeHtml(),
             ],
@@ -46,7 +50,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Seasonal Campaign',
                 'slug' => 'seasonal-campaign',
                 'subject' => 'Summer Sale - Hot Deals Inside!',
-                'category' => 'promotional',
+                'categorySlug' => 'promotional',
                 'thumbnail' => '/images/templates/seasonal.png',
                 'body_html' => $this->getSeasonalHtml(),
             ],
@@ -54,7 +58,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Feedback Request',
                 'slug' => 'feedback-request',
                 'subject' => 'We\'d Love Your Feedback',
-                'category' => 'engagement',
+                'categorySlug' => 'engagement',
                 'thumbnail' => '/images/templates/feedback.png',
                 'body_html' => $this->getFeedbackHtml(),
             ],
@@ -62,7 +66,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Event Invitation',
                 'slug' => 'event-invitation',
                 'subject' => 'You\'re Invited to an Exclusive Event',
-                'category' => 'announcement',
+                'categorySlug' => 'announcement',
                 'thumbnail' => '/images/templates/event.png',
                 'body_html' => $this->getEventHtml(),
             ],
@@ -70,7 +74,7 @@ class TemplateSeeder extends Seeder
                 'name' => 'Re-engagement',
                 'slug' => 're-engagement',
                 'subject' => 'We Miss You!',
-                'category' => 'engagement',
+                'categorySlug' => 'engagement',
                 'thumbnail' => '/images/templates/reengagement.png',
                 'body_html' => $this->getReengagementHtml(),
             ],
@@ -80,7 +84,12 @@ class TemplateSeeder extends Seeder
             Template::updateOrCreate(
                 ['slug' => $template['slug']],
                 [
-                    ...$template,
+                    'name' => $template['name'],
+                    'slug' => $template['slug'],
+                    'subject' => $template['subject'],
+                    'category_id' => $categoryMap->get($template['categorySlug'])?->id,
+                    'thumbnail' => $template['thumbnail'],
+                    'body_html' => $template['body_html'],
                     'is_active' => true,
                 ]
             );
@@ -124,7 +133,8 @@ class TemplateSeeder extends Seeder
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -172,7 +182,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -223,7 +234,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -286,7 +298,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -342,7 +355,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -390,7 +404,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -447,7 +462,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>
@@ -494,7 +510,8 @@ HTML;
         <tr>
             <td style="background-color:#1f2937;padding:30px;text-align:center;">
                 <p style="color:#9ca3af;font-size:12px;margin:0;">© 2026 MailForge. All rights reserved.</p>
-                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="#" style="color:#60a5fa;">Unsubscribe</a> | <a href="#" style="color:#60a5fa;">View in Browser</a></p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;">{{physical_address}}</p>
+                <p style="color:#9ca3af;font-size:12px;margin:10px 0 0 0;"><a href="{{unsubscribe_url}}" style="color:#60a5fa;">Unsubscribe</a></p>
             </td>
         </tr>
     </table>

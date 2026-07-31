@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Mail\MarketingEmail;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Models\PlatformSmtpSetting;
+use App\Models\SuppressionList;
 
 class CampaignService
 {
@@ -12,29 +14,51 @@ class CampaignService
         private EmailService $emailService
     ) {}
 
-    /**
-     * Send campaign to a single recipient
-     */
     public function sendToRecipient(Campaign $campaign, CampaignRecipient $recipient): bool
     {
+        if ($this->isSuppressed($recipient->email)) {
+            $recipient->update([
+                'status' => 'bounced',
+                'error_message' => 'Recipient is in suppression list',
+            ]);
+
+            $this->updateCampaignStats($campaign, false);
+
+            return false;
+        }
+
         $user = $campaign->user;
-        $template = $campaign->template;
+
+        $appUrl = config('app.url');
+        $unsubscribeUrl = "{$appUrl}/unsubscribe/{$campaign->id}/{$recipient->id}";
+
+        $platformSmtp = PlatformSmtpSetting::where('is_active', true)->first();
 
         $variables = [
             'name' => $recipient->name ?? 'Subscriber',
             'email' => $recipient->email,
             'campaign_name' => $campaign->name,
+            'unsubscribe_url' => $unsubscribeUrl,
+            'physical_address' => $platformSmtp?->physical_address ?? '',
         ];
 
-        $html = $template->render($variables);
+        $html = $campaign->renderBody($variables);
+
+        $trackingPixel = '<img src="'."{$appUrl}/track/open/{$campaign->id}/{$recipient->id}".'" alt="" width="1" height="1" style="display:none;" />';
+
+        $html = $this->injectTrackingPixel($html, $trackingPixel);
+
+        $html = $this->rewriteClickLinks($html, $appUrl, $campaign->id, $recipient->id, $unsubscribeUrl);
 
         $mailable = new MarketingEmail(
             subject: $campaign->subject,
-            htmlContent: $html
+            htmlContent: $html,
+            unsubscribeUrl: $unsubscribeUrl,
+            returnPath: config('mail.bounce_address'),
         );
 
         try {
-            $this->emailService->send($user, $mailable, $recipient->email);
+            $this->emailService->send($user, $mailable, $recipient->email, $campaign);
 
             $recipient->update([
                 'status' => 'sent',
@@ -72,5 +96,44 @@ class CampaignService
                 'sent_at' => now(),
             ]);
         }
+    }
+
+    private function isSuppressed(string $email): bool
+    {
+        return SuppressionList::where('email', $email)->exists();
+    }
+
+    private function injectTrackingPixel(string $html, string $pixel): string
+    {
+        $bodyClose = strrpos($html, '</body>');
+
+        if ($bodyClose !== false) {
+            return substr_replace($html, $pixel."\n", $bodyClose, 0);
+        }
+
+        return $html."\n".$pixel;
+    }
+
+    private function rewriteClickLinks(string $html, string $appUrl, int $campaignId, int $recipientId, string $unsubscribeUrl): string
+    {
+        return preg_replace_callback(
+            '/<a\s+[^>]*href\s*=\s*"([^"]*)"[^>]*>/i',
+            function (array $matches) use ($appUrl, $campaignId, $recipientId, $unsubscribeUrl) {
+                $url = $matches[1];
+
+                if (str_starts_with($url, 'mailto:') || str_starts_with($url, '#') || $url === '') {
+                    return $matches[0];
+                }
+
+                if (str_contains($url, $unsubscribeUrl)) {
+                    return $matches[0];
+                }
+
+                $trackingUrl = "{$appUrl}/track/click/{$campaignId}/{$recipientId}?url=".urlencode($url);
+
+                return str_replace('href="'.$url.'"', 'href="'.$trackingUrl.'"', $matches[0]);
+            },
+            $html
+        );
     }
 }

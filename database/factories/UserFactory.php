@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -64,5 +65,17 @@ class UserFactory extends Factory
     public function admin(): static
     {
         return $this->afterCreating(fn (User $user) => $user->assignRole('Super Admin'));
+    }
+
+    /**
+     * Assign a subscription plan to the user.
+     */
+    public function onPlan(string $code): static
+    {
+        $plan = SubscriptionPlan::where('code', $code)->firstOrFail();
+
+        return $this->state(fn (array $attributes) => [
+            'subscription_plan_id' => $plan->id,
+        ]);
     }
 }

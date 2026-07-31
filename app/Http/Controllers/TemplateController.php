@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Category;
 use App\Models\Template;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,10 +12,10 @@ class TemplateController extends Controller
 {
     public function index(Request $request): Response
     {
-        $query = Template::where('is_active', true);
+        $query = Template::with('category')->where('is_active', true);
 
         if ($request->has('category') && $request->category !== 'all') {
-            $query->where('category', $request->category);
+            $query->whereHas('category', fn ($q) => $q->where('slug', $request->category));
         }
 
         if ($request->has('search')) {
@@ -25,15 +26,14 @@ class TemplateController extends Controller
 
         return Inertia::render('templates/index', [
             'templates' => $templates,
-            'categories' => Template::where('is_active', true)
-                ->distinct()
-                ->pluck('category'),
+            'categories' => Category::active()->sorted()->get(['id', 'name', 'slug']),
         ]);
     }
 
     public function show(string $slug): Response
     {
-        $template = Template::where('slug', $slug)
+        $template = Template::with('category')
+            ->where('slug', $slug)
             ->where('is_active', true)
             ->firstOrFail();
 

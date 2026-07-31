@@ -35,4 +35,13 @@ return [
         ],
     ],
 
+    'bounce' => [
+        'imap_host' => env('BOUNCE_IMAP_HOST'),
+        'imap_port' => env('BOUNCE_IMAP_PORT', 993),
+        'imap_encryption' => env('BOUNCE_IMAP_ENCRYPTION', 'ssl'),
+        'imap_username' => env('BOUNCE_IMAP_USERNAME'),
+        'imap_password' => env('BOUNCE_IMAP_PASSWORD'),
+        'imap_mailbox' => env('BOUNCE_IMAP_MAILBOX', 'INBOX'),
+    ],
+
 ];

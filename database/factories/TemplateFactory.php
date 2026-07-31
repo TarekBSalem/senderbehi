@@ -2,13 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Models\Category;
 use App\Models\Template;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
-/**
- * @extends Factory<Template>
- */
 class TemplateFactory extends Factory
 {
     protected $model = Template::class;
@@ -22,7 +20,7 @@ class TemplateFactory extends Factory
             'slug' => Str::slug($name),
             'subject' => fake()->sentence(),
             'body_html' => '<html><body><h1>Hello {{name}}</h1><p>{{content}}</p></body></html>',
-            'category' => fake()->randomElement(['newsletter', 'promotional', 'transactional', 'welcome']),
+            'category_id' => Category::factory(),
             'thumbnail' => null,
             'variables' => ['name', 'content'],
             'is_active' => true,

@@ -27,8 +27,12 @@ class DatabaseSeeder extends Seeder
         $user->assignRole('User');
 
         $this->call([
+            CategorySeeder::class,
             TemplateSeeder::class,
             SubscriptionPlanSeeder::class,
+            DocSeeder::class,
+            BlogPostSeeder::class,
+            ChangelogSeeder::class,
         ]);
     }
 }
