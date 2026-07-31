@@ -4,7 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class RecipientController extends Controller
 {
@@ -35,10 +38,7 @@ class RecipientController extends Controller
         }
 
         if ($campaign->status !== 'draft') {
-            return response()->json([
-                'success' => false,
-                'error' => 'Cannot add recipients to a sent campaign',
-            ], 422);
+            return $this->recipientError('Cannot add recipients to a sent campaign', 422);
         }
 
         $validated = $request->validate([
@@ -49,7 +49,6 @@ class RecipientController extends Controller
 
         $added = 0;
         $duplicates = 0;
-        $invalid = 0;
 
         foreach ($validated['recipients'] as $recipient) {
             // Check for duplicates
@@ -73,11 +72,16 @@ class RecipientController extends Controller
             $added++;
         }
 
+        if ($request->inertia()) {
+            return $this->recipientSuccess(
+                'Added '.$added.' recipient'.($added === 1 ? '' : 's').($duplicates > 0 ? ' ('.$duplicates.' duplicate'.($duplicates === 1 ? '' : 's').' skipped)' : ''),
+            );
+        }
+
         return response()->json([
             'success' => true,
             'added' => $added,
             'duplicates' => $duplicates,
-            'invalid' => $invalid,
         ]);
     }
 
@@ -88,10 +92,7 @@ class RecipientController extends Controller
         }
 
         if ($campaign->status !== 'draft') {
-            return response()->json([
-                'success' => false,
-                'error' => 'Cannot add recipients to a sent campaign',
-            ], 422);
+            return $this->recipientError('Cannot add recipients to a sent campaign', 422);
         }
 
         $request->validate([
@@ -106,10 +107,9 @@ class RecipientController extends Controller
         $emailIndex = array_search('email', array_map('strtolower', $header));
 
         if ($emailIndex === false) {
-            return response()->json([
-                'success' => false,
-                'error' => 'CSV must have an "email" column',
-            ], 422);
+            fclose($handle);
+
+            return $this->recipientError('CSV must have an "email" column', 422);
         }
 
         // Find name column (optional)
@@ -148,6 +148,12 @@ class RecipientController extends Controller
 
         fclose($handle);
 
+        if ($request->inertia()) {
+            return $this->recipientSuccess(
+                'Imported '.$added.' recipient'.($added === 1 ? '' : 's').($duplicates > 0 ? ' ('.$duplicates.' duplicate'.($duplicates === 1 ? '' : 's').' skipped)' : ''),
+            );
+        }
+
         return response()->json([
             'success' => true,
             'added' => $added,
@@ -155,23 +161,51 @@ class RecipientController extends Controller
         ]);
     }
 
-    public function destroy(Campaign $campaign, CampaignRecipient $recipient)
+    public function destroy(Request $request, Campaign $campaign, CampaignRecipient $recipient)
     {
         if ($campaign->user_id !== auth()->id()) {
             abort(403);
         }
 
         if ($recipient->status !== 'pending') {
-            return response()->json([
-                'success' => false,
-                'error' => 'Cannot remove a recipient that has already been sent',
-            ], 422);
+            return $this->recipientError('Cannot remove a recipient that has already been sent', 422);
         }
 
         $recipient->delete();
 
+        if ($request->inertia()) {
+            return $this->recipientSuccess('Recipient removed');
+        }
+
         return response()->json([
             'success' => true,
         ]);
+    }
+
+    private function recipientSuccess(string $message): RedirectResponse
+    {
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $message,
+        ]);
+
+        return back();
+    }
+
+    private function recipientError(string $message, int $status = 422): JsonResponse|RedirectResponse
+    {
+        if (request()->inertia()) {
+            Inertia::flash('toast', [
+                'type' => 'error',
+                'message' => $message,
+            ]);
+
+            return back();
+        }
+
+        return response()->json([
+            'success' => false,
+            'error' => $message,
+        ], $status);
     }
 }

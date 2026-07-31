@@ -259,3 +259,95 @@ describe('Recipient Delete', function () {
         $response->assertStatus(403);
     });
 });
+
+describe('Recipient Inertia Responses', function () {
+    test('inertia request to add recipients redirects back with toast', function () {
+        $this->actingAs($this->user);
+
+        $response = $this->post(route('recipients.store', $this->campaign), [
+            'recipients' => [
+                ['email' => 'test1@example.com', 'name' => 'Test User 1'],
+            ],
+        ], ['X-Inertia' => true]);
+
+        $response->assertRedirect();
+        $response->assertInertiaFlash('toast');
+
+        $this->assertDatabaseHas('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'test1@example.com',
+        ]);
+    });
+
+    test('inertia request to import recipients redirects back with toast', function () {
+        $this->actingAs($this->user);
+
+        $csvContent = "email,name\njohn@example.com,John Doe\n";
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
+
+        $response = $this->post(route('recipients.import', $this->campaign), [
+            'file' => $file,
+        ], ['X-Inertia' => true]);
+
+        $response->assertRedirect();
+        $response->assertInertiaFlash('toast');
+
+        $this->assertDatabaseHas('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'john@example.com',
+        ]);
+    });
+
+    test('inertia request to delete recipient redirects back with toast', function () {
+        $this->actingAs($this->user);
+
+        $recipient = CampaignRecipient::factory()->pending()->create([
+            'campaign_id' => $this->campaign->id,
+        ]);
+
+        $response = $this->delete(route('recipients.destroy', [$this->campaign, $recipient]), [], ['X-Inertia' => true]);
+
+        $response->assertRedirect();
+        $response->assertInertiaFlash('toast');
+
+        $this->assertDatabaseMissing('campaign_recipients', ['id' => $recipient->id]);
+    });
+
+    test('inertia request to add recipients to sent campaign redirects with error toast', function () {
+        $this->actingAs($this->user);
+
+        $this->campaign->update(['status' => 'sent']);
+
+        $response = $this->post(route('recipients.store', $this->campaign), [
+            'recipients' => [
+                ['email' => 'test@example.com'],
+            ],
+        ], ['X-Inertia' => true]);
+
+        $response->assertRedirect();
+        $response->assertInertiaFlash('toast');
+
+        $this->assertDatabaseMissing('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'test@example.com',
+        ]);
+    });
+
+    test('inertia request to import csv without email column redirects with error toast', function () {
+        $this->actingAs($this->user);
+
+        $csvContent = "name,phone\nJohn Doe,555-1234\n";
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
+
+        $response = $this->post(route('recipients.import', $this->campaign), [
+            'file' => $file,
+        ], ['X-Inertia' => true]);
+
+        $response->assertRedirect();
+        $response->assertInertiaFlash('toast');
+
+        $this->assertDatabaseMissing('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+        ]);
+    });
+});
