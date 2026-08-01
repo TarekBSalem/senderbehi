@@ -1,5 +1,5 @@
 # MailForge — Progress Tracker
-# Last Updated: 2026-08-01 (9th update)# Update this file at the end of every task.
+# Last Updated: 2026-08-01 (10th update)# Update this file at the end of every task.
 
 ---
 
@@ -32,6 +32,11 @@
 | Task | Started | Notes |
 |------|---------|-------|
 | — | — | — |
+
+### Completed This Sprint (Aug 1)
+| Task | Notes |
+|------|-------|
+| Admin mail send logs | New `mail_logs` table (persistent, records cumulative history across resends) + `MailLog` model/factory. `CampaignService` logs `sent`/`failed`/`bounced` (with `smtp_source`, `attempt`, `error_message`); `SendCampaignEmail::failed()` logs `job_failed`. `AdminMailLogController` (index w/ search + event filter + stats, destroy, clear) + `admin/mail-logs.tsx` page (stat cards, filters, table, pagination, Clear All via ConfirmDialog) + sidebar nav. 10 new tests. Full suite: 296/296 passing. Regenerated wayfinder with `--with-form` (auth pages rely on `.form()`), tsc + build clean. |
 
 ### Completed This Sprint (Jul 31)
 | Task | Notes |
@@ -191,6 +196,7 @@
 | User subscription assignment (admin) | ✅ Complete | Assign plan in admin user show page |
 | Platform-wide analytics | ✅ Complete | BarChart daily volume, PieChart status breakdown, plan distribution, MRR, 10 tests |
 | Template CRUD (admin) | ✅ Complete | AdminTemplateController, pages (index, create, edit), routes, auto-variable extraction, 13 tests |
+| Mail send logs (admin) | ✅ Complete | `mail_logs` table, AdminMailLogController (index/destroy/clear), `admin/mail-logs.tsx` page, sent/failed/bounced/job_failed events, 10 tests |
 | Category management | ✅ Complete | Categories table + model, AdminCategoryController CRUD, pages (index, create, edit), category_id FK on templates, auto-migration of data, 11 tests |
 | Announcements / notifications to users | P2 | In-app |
 

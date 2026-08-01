@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Mail\MarketingEmail;
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Models\MailLog;
 use App\Models\PlatformSmtpSetting;
 use App\Models\SuppressionList;
+use App\Models\User;
 
 class CampaignService
 {
@@ -16,18 +18,20 @@ class CampaignService
 
     public function sendToRecipient(Campaign $campaign, CampaignRecipient $recipient): bool
     {
+        $user = $campaign->user;
+
         if ($this->isSuppressed($recipient->email)) {
             $recipient->update([
                 'status' => 'bounced',
                 'error_message' => 'Recipient is in suppression list',
             ]);
 
+            $this->logSend($campaign, $recipient, $user, 'bounced', 'Recipient is in suppression list');
+
             $this->updateCampaignStats($campaign, false);
 
             return false;
         }
-
-        $user = $campaign->user;
 
         $appUrl = config('app.url');
         $unsubscribeUrl = "{$appUrl}/unsubscribe/{$campaign->id}/{$recipient->id}";
@@ -69,6 +73,8 @@ class CampaignService
 
             $recipient->increment('success_count');
 
+            $this->logSend($campaign, $recipient, $user, 'sent');
+
             $this->updateCampaignStats($campaign, true);
 
             return true;
@@ -78,10 +84,39 @@ class CampaignService
                 'error_message' => $e->getMessage(),
             ]);
 
+            $this->logSend($campaign, $recipient, $user, 'failed', $e->getMessage());
+
             $this->updateCampaignStats($campaign, false);
 
             return false;
         }
+    }
+
+    private function logSend(Campaign $campaign, CampaignRecipient $recipient, User $user, string $event, ?string $errorMessage = null): void
+    {
+        MailLog::create([
+            'campaign_id' => $campaign->id,
+            'recipient_id' => $recipient->id,
+            'user_id' => $user->id,
+            'recipient_email' => $recipient->email,
+            'event' => $event,
+            'smtp_source' => $this->smtpSource($campaign, $user),
+            'error_message' => $errorMessage,
+            'attempt' => $recipient->attempt_count,
+        ]);
+    }
+
+    private function smtpSource(Campaign $campaign, User $user): string
+    {
+        if ($campaign->use_custom_smtp && $campaign->smtp_host) {
+            return 'campaign';
+        }
+
+        if ($user->smtpSetting?->is_custom) {
+            return 'user';
+        }
+
+        return 'default';
     }
 
     public function updateCampaignStats(Campaign $campaign, bool $success): void

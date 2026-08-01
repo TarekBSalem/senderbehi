@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminAnalyticsController;
 use App\Http\Controllers\Admin\AdminCategoryController;
+use App\Http\Controllers\Admin\AdminMailLogController;
 use App\Http\Controllers\Admin\AdminSmtpController;
 use App\Http\Controllers\Admin\AdminSubscriptionPlanController;
 use App\Http\Controllers\Admin\AdminTemplateController;
@@ -69,6 +70,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Admin Panel
     Route::prefix('admin')->name('admin.')->middleware('admin')->group(function () {
         Route::get('analytics', [AdminAnalyticsController::class, 'index'])->name('analytics.index');
+        Route::get('mail-logs', [AdminMailLogController::class, 'index'])->name('mail-logs.index');
+        Route::delete('mail-logs', [AdminMailLogController::class, 'clear'])->name('mail-logs.clear');
+        Route::delete('mail-logs/{mailLog}', [AdminMailLogController::class, 'destroy'])->name('mail-logs.destroy');
         Route::get('smtp', [AdminSmtpController::class, 'index'])->name('smtp.index');
         Route::put('smtp', [AdminSmtpController::class, 'update'])->name('smtp.update');
         Route::post('smtp/test', [AdminSmtpController::class, 'test'])->name('smtp.test');

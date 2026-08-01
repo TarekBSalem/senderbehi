@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, BookOpen, CreditCard, FileText, FolderGit2, LayoutGrid, Mail, Send, Tags, Users } from 'lucide-react';
+import { BarChart3, BookOpen, CreditCard, FileText, FolderGit2, LayoutGrid, Mail, ScrollText, Send, Tags, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -20,6 +20,7 @@ import campaigns from '@/routes/campaigns';
 import templates from '@/routes/templates';
 import subscriptionPlans from '@/routes/admin/subscription-plans';
 import adminUsers from '@/routes/admin/users';
+import mailLogs from '@/routes/admin/mail-logs';
 import type { NavItem } from '@/types';
 
 const mainNavItems: NavItem[] = [
@@ -45,6 +46,11 @@ const adminNavItems: NavItem[] = [
         title: 'Analytics',
         href: '/admin/analytics',
         icon: BarChart3,
+    },
+    {
+        title: 'Mail Logs',
+        href: mailLogs.index(),
+        icon: ScrollText,
     },
     {
         title: 'Users',

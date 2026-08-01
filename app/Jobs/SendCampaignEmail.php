@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Campaign;
 use App\Models\CampaignRecipient;
+use App\Models\MailLog;
 use App\Services\CampaignService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -44,6 +45,16 @@ class SendCampaignEmail implements ShouldQueue
         $this->recipient->update([
             'status' => 'failed',
             'error_message' => $exception->getMessage(),
+        ]);
+
+        MailLog::create([
+            'campaign_id' => $this->campaign->id,
+            'recipient_id' => $this->recipient->id,
+            'user_id' => $this->campaign->user_id,
+            'recipient_email' => $this->recipient->email,
+            'event' => 'job_failed',
+            'error_message' => $exception->getMessage(),
+            'attempt' => $this->recipient->attempt_count,
         ]);
 
         $this->campaign->update([
