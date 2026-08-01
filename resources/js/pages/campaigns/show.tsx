@@ -369,6 +369,7 @@ export default function CampaignShow({ campaign, previewHtml }: Props) {
     const [resendSelectedOpen, setResendSelectedOpen] = useState(false);
     const [resendAllOpen, setResendAllOpen] = useState(false);
     const [resendCampaignOpen, setResendCampaignOpen] = useState(false);
+    const [resendToAllOpen, setResendToAllOpen] = useState(false);
     const [resendRecipient, setResendRecipient] = useState<Recipient | null>(null);
 
     useEffect(() => {
@@ -495,6 +496,13 @@ return;
         });
     };
 
+    const confirmResendToAll = () => {
+        setResendToAllOpen(false);
+        router.post(`/campaigns/${campaign.id}/recipients/resend`, {
+            resend_all: true,
+        });
+    };
+
     const handleDelete = () => {
         if (confirm('Are you sure you want to delete this campaign?')) {
             router.delete(`/campaigns/${campaign.id}`);
@@ -540,6 +548,12 @@ return;
                             <Button variant="outline" onClick={() => setResendAllOpen(true)}>
                                 <RotateCcw className="h-4 w-4 mr-2" />
                                 Resend Failed ({failedRecipients.length})
+                            </Button>
+                        )}
+                        {['sent', 'partial', 'failed'].includes(campaign.status) && (campaign.recipients?.length ?? 0) > 0 && (
+                            <Button variant="outline" onClick={() => setResendToAllOpen(true)}>
+                                <RotateCcw className="h-4 w-4 mr-2" />
+                                Resend to All
                             </Button>
                         )}
                         {campaign.status === 'sent' && resendableRecipients.length > 0 && (
@@ -647,7 +661,7 @@ return;
                     </Card>
                 </div>
 
-                {['draft', 'scheduled'].includes(campaign.status) && (
+                {!['sending'].includes(campaign.status) && (
                     <SendingSettings campaign={campaign} />
                 )}
 
@@ -894,6 +908,15 @@ return;
                 } recipient(s) will be queued for another send.`}
                 confirmLabel="Resend"
                 onConfirm={confirmResendCampaign}
+            />
+
+            <ConfirmDialog
+                open={resendToAllOpen}
+                onOpenChange={setResendToAllOpen}
+                title="Resend to all recipients?"
+                description={`All ${campaign.recipients?.length ?? 0} recipient(s) will be re-queued and sent again with the current settings.`}
+                confirmLabel="Resend to All"
+                onConfirm={confirmResendToAll}
             />
 
             <ConfirmDialog

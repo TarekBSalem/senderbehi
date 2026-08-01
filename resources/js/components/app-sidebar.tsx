@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { BarChart3, BookOpen, CreditCard, FileText, FolderGit2, LayoutGrid, Mail, ScrollText, Send, ShieldBan, Tags, Users } from 'lucide-react';
+import { BarChart3, BookOpen, CreditCard, FileText, FolderGit2, LayoutGrid, Mail, Palette, ScrollText, Send, Server, ShieldBan, ShieldCheck, Tags, User, Users } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
@@ -18,6 +18,10 @@ import {
 import { dashboard } from '@/routes';
 import campaigns from '@/routes/campaigns';
 import templates from '@/routes/templates';
+import { edit as editAppearance } from '@/routes/appearance';
+import { edit as editProfile } from '@/routes/profile';
+import { edit as editSecurity } from '@/routes/security';
+import { edit as editSmtp } from '@/routes/smtp';
 import subscriptionPlans from '@/routes/admin/subscription-plans';
 import adminUsers from '@/routes/admin/users';
 import mailLogs from '@/routes/admin/mail-logs';
@@ -39,6 +43,29 @@ const mainNavItems: NavItem[] = [
         title: 'Templates',
         href: templates.index(),
         icon: Mail,
+    },
+];
+
+const settingsNavItems: NavItem[] = [
+    {
+        title: 'Profile',
+        href: editProfile(),
+        icon: User,
+    },
+    {
+        title: 'Security',
+        href: editSecurity(),
+        icon: ShieldCheck,
+    },
+    {
+        title: 'SMTP',
+        href: editSmtp(),
+        icon: Server,
+    },
+    {
+        title: 'Appearance',
+        href: editAppearance(),
+        icon: Palette,
     },
 ];
 
@@ -113,6 +140,21 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+                <SidebarGroup className="px-2 py-0">
+                    <SidebarGroupLabel>Settings</SidebarGroupLabel>
+                    <SidebarMenu>
+                        {settingsNavItems.map((item) => (
+                            <SidebarMenuItem key={item.title}>
+                                <SidebarMenuButton asChild tooltip={{ children: item.title }}>
+                                    <Link href={item.href} prefetch>
+                                        {item.icon && <item.icon />}
+                                        <span>{item.title}</span>
+                                    </Link>
+                                </SidebarMenuButton>
+                            </SidebarMenuItem>
+                        ))}
+                    </SidebarMenu>
+                </SidebarGroup>
                 {isSuperAdmin && (
                     <SidebarGroup className="px-2 py-0">
                         <SidebarGroupLabel>Admin</SidebarGroupLabel>

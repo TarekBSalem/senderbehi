@@ -80,6 +80,47 @@ describe('Recipient resend', function () {
         Queue::assertNotPushed(SendCampaignEmail::class);
     });
 
+    test('resend_all re-queues every recipient regardless of status', function () {
+        $this->actingAs($this->user);
+
+        Queue::fake();
+
+        $sent = CampaignRecipient::factory()->sent()->create(['campaign_id' => $this->campaign->id]);
+        $failed = CampaignRecipient::factory()->failed()->create(['campaign_id' => $this->campaign->id]);
+        $pending = CampaignRecipient::factory()->pending()->create(['campaign_id' => $this->campaign->id]);
+
+        $this->post(route('recipients.resend', $this->campaign), [
+            'resend_all' => true,
+        ]);
+
+        $this->assertDatabaseHas('campaign_recipients', ['id' => $sent->id, 'status' => 'pending', 'error_message' => null]);
+        $this->assertDatabaseHas('campaign_recipients', ['id' => $failed->id, 'status' => 'pending', 'error_message' => null]);
+        $this->assertDatabaseHas('campaign_recipients', ['id' => $pending->id, 'status' => 'pending', 'error_message' => null]);
+
+        $this->assertDatabaseHas('campaigns', ['id' => $this->campaign->id, 'status' => 'sending']);
+
+        Queue::assertPushed(SendCampaignEmail::class, 3);
+    });
+
+    test('resend_all with recipient_ids still respects the requested selection', function () {
+        $this->actingAs($this->user);
+
+        Queue::fake();
+
+        $sent = CampaignRecipient::factory()->sent()->create(['campaign_id' => $this->campaign->id]);
+        $failed = CampaignRecipient::factory()->failed()->create(['campaign_id' => $this->campaign->id]);
+
+        $this->post(route('recipients.resend', $this->campaign), [
+            'resend_all' => true,
+            'recipient_ids' => [$sent->id],
+        ]);
+
+        $this->assertDatabaseHas('campaign_recipients', ['id' => $sent->id, 'status' => 'pending']);
+        $this->assertDatabaseHas('campaign_recipients', ['id' => $failed->id, 'status' => 'failed']);
+
+        Queue::assertPushed(SendCampaignEmail::class, 1);
+    });
+
     test('resend is blocked when the monthly quota is exhausted', function () {
         $this->user->monthly_email_count = 500;
         $this->user->monthly_email_reset_at = now();

@@ -12,6 +12,8 @@ import {
 } from '@/components/ui/select';
 import Heading from '@/components/heading';
 import ResultDialog from '@/components/result-dialog';
+import SmtpProviderSelect from '@/components/smtp-provider-select';
+import { detectSmtpProvider, type SmtpProviderPreset } from '@/lib/smtp-providers';
 import { useState } from 'react';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
@@ -33,6 +35,7 @@ interface Props {
 
 export default function SmtpSettings({ settings }: Props) {
     const [isCustom, setIsCustom] = useState(settings.is_custom);
+    const [provider, setProvider] = useState(detectSmtpProvider(settings.host));
     const [host, setHost] = useState(settings.host);
     const [port, setPort] = useState(String(settings.port));
     const [username, setUsername] = useState(settings.username);
@@ -66,6 +69,22 @@ export default function SmtpSettings({ settings }: Props) {
             onError: (errs) => setErrors(errs),
             onFinish: () => setSubmitting(false),
         });
+    };
+
+    const applyProvider = (preset: SmtpProviderPreset) => {
+        setProvider(preset.id);
+
+        if (preset.id === 'custom') {
+            return;
+        }
+
+        setHost(preset.host);
+        setPort(String(preset.port));
+        setEncryption(preset.encryption);
+
+        if (preset.username) {
+            setUsername(preset.username);
+        }
     };
 
     const testConnection = async () => {
@@ -106,6 +125,8 @@ export default function SmtpSettings({ settings }: Props) {
 
                 {isCustom && (
                     <>
+                        <SmtpProviderSelect value={provider} onSelect={applyProvider} />
+
                         <div className="grid gap-2">
                             <Label htmlFor="host">SMTP Host</Label>
                             <Input

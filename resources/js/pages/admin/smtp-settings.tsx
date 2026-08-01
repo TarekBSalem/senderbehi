@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ResultDialog from '@/components/result-dialog';
+import SmtpProviderSelect from '@/components/smtp-provider-select';
+import { detectSmtpProvider, type SmtpProviderPreset } from '@/lib/smtp-providers';
 import {
     Select,
     SelectContent,
@@ -45,11 +47,28 @@ export default function AdminSmtpSettings({ smtp }: Props) {
         is_active: smtp?.is_active ?? true,
     });
     const [testing, setTesting] = useState(false);
+    const [provider, setProvider] = useState(detectSmtpProvider(smtp?.host || ''));
     const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         put('/admin/smtp');
+    };
+
+    const applyProvider = (preset: SmtpProviderPreset) => {
+        setProvider(preset.id);
+
+        if (preset.id === 'custom') {
+            return;
+        }
+
+        setData((current) => ({
+            ...current,
+            host: preset.host,
+            port: preset.port,
+            encryption: preset.encryption,
+            username: preset.username ?? current.username,
+        }));
     };
 
     const handleTestConnection = async () => {
@@ -102,11 +121,13 @@ export default function AdminSmtpSettings({ smtp }: Props) {
                     <CardHeader>
                         <CardTitle>SMTP Configuration</CardTitle>
                         <CardDescription>
-                            Configure your Gmail SMTP settings for sending emails
+                            Configure the SMTP server used for sending emails
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            <SmtpProviderSelect value={provider} onSelect={applyProvider} />
+
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="host">SMTP Host</Label>

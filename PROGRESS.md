@@ -1,5 +1,5 @@
 # MailForge — Progress Tracker
-# Last Updated: 2026-08-01 (12th update)# Update this file at the end of every task.
+# Last Updated: 2026-08-01 (14th update)# Update this file at the end of every task.
 
 ---
 
@@ -36,6 +36,9 @@
 ### Completed This Sprint (Aug 1)
 | Task | Notes |
 |------|-------|
+| Post-send SMTP update + resend-to-all | `campaigns/show.tsx` now shows the Sending Settings card for every campaign status except in-flight `sending`, so SMTP / send speed can be edited after creation (backend `CampaignController::update` already had no status guard). New "Resend to All" header button (visible for sent/partial/failed campaigns) posts `resend_all: true` to `recipients.resend`, which re-queues **every** recipient regardless of status (sent, failed, even pending), with rate-limit staggering and quota check. `RecipientController::resend` gained the `resend_all` branch while keeping existing selected/failed semantics. 3 new tests (sent-campaign SMTP update, resend_all re-queues all statuses, resend_all still honors explicit recipient_ids). Full suite: 314/314 passing, pint + tsc + build clean. |
+| Settings section in sidebar | New "Settings" group in `app-sidebar.tsx` (visible to every logged-in user) grouping all per-account settings: Profile, Security, SMTP, Appearance. Previously only reachable via the user-menu dropdown. tsc + build clean. |
+| SMTP provider dropdown | New shared `SmtpProviderSelect` component + `lib/smtp-providers.ts` presets (Custom, Gmail/Workspace, o2switch, Mailgun, SendGrid, Postmark, Amazon SES). Selecting a provider auto-fills host/port/encryption (+ username for SendGrid). Auto-detects the saved provider from the existing host. Wired into both `settings/smtp.tsx` and `admin/smtp-settings.tsx`. tsc + build clean. |
 | Robust CSV recipient import | Importer now auto-detects the delimiter (comma / semicolon / tab), strips UTF-8 BOM from the first header cell, and trims whitespace around cells. Fixes failures when files are saved by Excel in French locale (`;`) or pasted tab-separated. 4 new tests. Full suite: 311/311 passing. |
 | Admin suppression list management | `AdminSuppressionController` (index w/ search + reason filter + stats, store/manual add, destroy, clear) + `admin/suppressions.tsx` page (stat cards, add form, table, ConfirmDialog on every delete/clear) + sidebar nav (ShieldBan icon). All destructive actions confirmed via `ConfirmDialog`; mail-logs page also gained a per-row delete confirmation modal. 11 new tests. Full suite: 307/307 passing. |
 | Admin mail send logs | New `mail_logs` table (persistent, records cumulative history across resends) + `MailLog` model/factory. `CampaignService` logs `sent`/`failed`/`bounced` (with `smtp_source`, `attempt`, `error_message`); `SendCampaignEmail::failed()` logs `job_failed`. `AdminMailLogController` (index w/ search + event filter + stats, destroy, clear) + `admin/mail-logs.tsx` page (stat cards, filters, table, pagination, Clear All via ConfirmDialog) + sidebar nav. 10 new tests. Full suite: 296/296 passing. Regenerated wayfinder with `--with-form` (auth pages rely on `.form()`), tsc + build clean. |

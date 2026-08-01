@@ -216,12 +216,17 @@ class RecipientController extends Controller
         }
 
         $recipientIds = $request->input('recipient_ids');
+        $resendAll = $request->boolean('resend_all');
 
-        $query = $campaign->recipients()->whereIn('status', ['failed', 'sent']);
+        $query = $campaign->recipients();
+
+        if (! $resendAll) {
+            $query->whereIn('status', ['failed', 'sent']);
+        }
 
         if (is_array($recipientIds) && count($recipientIds) > 0) {
             $query->whereIn('id', $recipientIds);
-        } else {
+        } elseif (! $resendAll) {
             $query->where('status', 'failed');
         }
 

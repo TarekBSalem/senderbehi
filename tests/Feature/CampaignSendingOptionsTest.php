@@ -263,6 +263,32 @@ describe('Campaign sending settings', function () {
         $campaign->refresh();
         expect($campaign->smtp_password)->toBe('original-password');
     });
+
+    test('user can update SMTP settings after the campaign has been sent', function () {
+        $this->actingAs($this->user);
+
+        $campaign = Campaign::factory()->sent()->create([
+            'user_id' => $this->user->id,
+            'use_custom_smtp' => true,
+            'smtp_host' => 'old-smtp.example.com',
+        ]);
+
+        $this->put(route('campaigns.update', $campaign), [
+            'use_custom_smtp' => true,
+            'smtp_host' => 'new-smtp.example.com',
+            'smtp_port' => 587,
+            'smtp_username' => 'new@example.com',
+            'smtp_password' => '',
+            'smtp_encryption' => 'tls',
+            'smtp_from_email' => 'new@example.com',
+            'smtp_from_name' => 'New Sender',
+        ])->assertRedirect();
+
+        $campaign->refresh();
+        expect($campaign->smtp_host)->toBe('new-smtp.example.com');
+        expect($campaign->smtp_from_name)->toBe('New Sender');
+        expect($campaign->status)->toBe('sent');
+    });
 });
 
 describe('Campaign send rate resolution', function () {
