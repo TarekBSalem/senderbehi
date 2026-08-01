@@ -71,6 +71,7 @@ const eventOptions = [
 
 export default function AdminMailLogs({ logs, filters, stats }: Props) {
     const [search, setSearch] = useState(filters.search || '');
+    const [deleteTarget, setDeleteTarget] = useState<MailLog | null>(null);
     const [clearOpen, setClearOpen] = useState(false);
 
     const applyFilter = (key: string, value: string) => {
@@ -80,8 +81,14 @@ export default function AdminMailLogs({ logs, filters, stats }: Props) {
         });
     };
 
-    const deleteLog = (id: number) => {
-        router.delete(mailLogs.destroy.url(id));
+    const deleteLog = () => {
+        if (!deleteTarget) {
+            return;
+        }
+
+        router.delete(mailLogs.destroy.url(deleteTarget.id), {
+            onSuccess: () => setDeleteTarget(null),
+        });
     };
 
     const clearAll = () => {
@@ -217,7 +224,7 @@ export default function AdminMailLogs({ logs, filters, stats }: Props) {
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <Button variant="ghost" size="sm" onClick={() => deleteLog(log.id)}>
+                                            <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(log)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -263,6 +270,20 @@ export default function AdminMailLogs({ logs, filters, stats }: Props) {
                     </div>
                 )}
             </div>
+
+            <ConfirmDialog
+                open={deleteTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeleteTarget(null);
+                    }
+                }}
+                title="Delete mail log?"
+                description={`This will permanently delete the log entry for ${deleteTarget?.recipient_email ?? 'this recipient'}.`}
+                confirmLabel="Delete"
+                variant="destructive"
+                onConfirm={deleteLog}
+            />
 
             <ConfirmDialog
                 open={clearOpen}

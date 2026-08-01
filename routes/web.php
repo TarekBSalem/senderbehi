@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminCategoryController;
 use App\Http\Controllers\Admin\AdminMailLogController;
 use App\Http\Controllers\Admin\AdminSmtpController;
 use App\Http\Controllers\Admin\AdminSubscriptionPlanController;
+use App\Http\Controllers\Admin\AdminSuppressionController;
 use App\Http\Controllers\Admin\AdminTemplateController;
 use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -73,6 +74,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('mail-logs', [AdminMailLogController::class, 'index'])->name('mail-logs.index');
         Route::delete('mail-logs', [AdminMailLogController::class, 'clear'])->name('mail-logs.clear');
         Route::delete('mail-logs/{mailLog}', [AdminMailLogController::class, 'destroy'])->name('mail-logs.destroy');
+
+        Route::get('suppressions', [AdminSuppressionController::class, 'index'])->name('suppressions.index');
+        Route::post('suppressions', [AdminSuppressionController::class, 'store'])->name('suppressions.store');
+        Route::delete('suppressions', [AdminSuppressionController::class, 'clear'])->name('suppressions.clear');
+        Route::delete('suppressions/{suppression}', [AdminSuppressionController::class, 'destroy'])->name('suppressions.destroy');
         Route::get('smtp', [AdminSmtpController::class, 'index'])->name('smtp.index');
         Route::put('smtp', [AdminSmtpController::class, 'update'])->name('smtp.update');
         Route::post('smtp/test', [AdminSmtpController::class, 'test'])->name('smtp.test');
