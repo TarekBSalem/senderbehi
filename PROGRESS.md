@@ -1,5 +1,5 @@
 # MailForge — Progress Tracker
-# Last Updated: 2026-08-01 (11th update)# Update this file at the end of every task.
+# Last Updated: 2026-08-01 (12th update)# Update this file at the end of every task.
 
 ---
 
@@ -36,6 +36,7 @@
 ### Completed This Sprint (Aug 1)
 | Task | Notes |
 |------|-------|
+| Robust CSV recipient import | Importer now auto-detects the delimiter (comma / semicolon / tab), strips UTF-8 BOM from the first header cell, and trims whitespace around cells. Fixes failures when files are saved by Excel in French locale (`;`) or pasted tab-separated. 4 new tests. Full suite: 311/311 passing. |
 | Admin suppression list management | `AdminSuppressionController` (index w/ search + reason filter + stats, store/manual add, destroy, clear) + `admin/suppressions.tsx` page (stat cards, add form, table, ConfirmDialog on every delete/clear) + sidebar nav (ShieldBan icon). All destructive actions confirmed via `ConfirmDialog`; mail-logs page also gained a per-row delete confirmation modal. 11 new tests. Full suite: 307/307 passing. |
 | Admin mail send logs | New `mail_logs` table (persistent, records cumulative history across resends) + `MailLog` model/factory. `CampaignService` logs `sent`/`failed`/`bounced` (with `smtp_source`, `attempt`, `error_message`); `SendCampaignEmail::failed()` logs `job_failed`. `AdminMailLogController` (index w/ search + event filter + stats, destroy, clear) + `admin/mail-logs.tsx` page (stat cards, filters, table, pagination, Clear All via ConfirmDialog) + sidebar nav. 10 new tests. Full suite: 296/296 passing. Regenerated wayfinder with `--with-form` (auth pages rely on `.form()`), tsc + build clean. |
 

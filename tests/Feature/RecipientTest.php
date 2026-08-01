@@ -205,6 +205,84 @@ describe('Recipient Import CSV', function () {
         $response->assertJson(['success' => true, 'added' => 1, 'duplicates' => 1]);
     });
 
+    test('user can import tab-separated files', function () {
+        $this->actingAs($this->user);
+
+        $csvContent = "email\tname\njohn@example.com\tJohn Doe\njane@example.com\tJane Smith\n";
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
+
+        $response = $this->postJson(route('recipients.import', $this->campaign), [
+            'file' => $file,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'added' => 2]);
+
+        $this->assertDatabaseHas('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'john@example.com',
+            'name' => 'John Doe',
+        ]);
+    });
+
+    test('user can import semicolon-separated files', function () {
+        $this->actingAs($this->user);
+
+        $csvContent = "email;name\njohn@example.com;John Doe\njane@example.com;Jane Smith\n";
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
+
+        $response = $this->postJson(route('recipients.import', $this->campaign), [
+            'file' => $file,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'added' => 2]);
+
+        $this->assertDatabaseHas('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'jane@example.com',
+        ]);
+    });
+
+    test('user can import files with a UTF-8 BOM', function () {
+        $this->actingAs($this->user);
+
+        $csvContent = "\xEF\xBB\xBFemail,name\njohn@example.com,John Doe\n";
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
+
+        $response = $this->postJson(route('recipients.import', $this->campaign), [
+            'file' => $file,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'added' => 1]);
+
+        $this->assertDatabaseHas('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'john@example.com',
+        ]);
+    });
+
+    test('whitespace around cells is trimmed during import', function () {
+        $this->actingAs($this->user);
+
+        $csvContent = "email, name\n john@example.com , John Doe \n";
+        $file = UploadedFile::fake()->createWithContent('recipients.csv', $csvContent);
+
+        $response = $this->postJson(route('recipients.import', $this->campaign), [
+            'file' => $file,
+        ]);
+
+        $response->assertOk();
+        $response->assertJson(['success' => true, 'added' => 1]);
+
+        $this->assertDatabaseHas('campaign_recipients', [
+            'campaign_id' => $this->campaign->id,
+            'email' => 'john@example.com',
+            'name' => 'John Doe',
+        ]);
+    });
+
     test('cannot import to sent campaign', function () {
         $this->actingAs($this->user);
 

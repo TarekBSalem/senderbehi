@@ -110,7 +110,14 @@ class RecipientController extends Controller
 
         $file = $request->file('file');
         $handle = fopen($file->getRealPath(), 'r');
-        $header = fgetcsv($handle);
+        $firstLine = fgets($handle);
+        rewind($handle);
+
+        $delimiter = $this->detectCsvDelimiter($firstLine ?: '');
+        $header = array_map(
+            fn (string $column) => trim($column, " \t\n\r\0\x0B\xEF\xBB\xBF"),
+            fgetcsv($handle, 0, $delimiter) ?: []
+        );
 
         // Find email column
         $emailIndex = array_search('email', array_map('strtolower', $header));
@@ -128,9 +135,9 @@ class RecipientController extends Controller
         $duplicates = 0;
         $invalid = 0;
 
-        while (($row = fgetcsv($handle)) !== false) {
-            $email = $row[$emailIndex] ?? null;
-            $name = $nameIndex !== false ? ($row[$nameIndex] ?? null) : null;
+        while (($row = fgetcsv($handle, 0, $delimiter)) !== false) {
+            $email = isset($row[$emailIndex]) ? trim($row[$emailIndex]) : null;
+            $name = $nameIndex !== false && isset($row[$nameIndex]) ? trim($row[$nameIndex]) : null;
 
             if (! $email || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
                 $invalid++;
@@ -276,6 +283,23 @@ class RecipientController extends Controller
         ]);
 
         return back();
+    }
+
+    private function detectCsvDelimiter(string $line): string
+    {
+        $best = ',';
+        $bestCount = 0;
+
+        foreach ([',', ';', "\t"] as $candidate) {
+            $count = substr_count($line, $candidate);
+
+            if ($count > $bestCount) {
+                $bestCount = $count;
+                $best = $candidate;
+            }
+        }
+
+        return $best;
     }
 
     private function recipientError(string $message, int $status = 422): JsonResponse|RedirectResponse
